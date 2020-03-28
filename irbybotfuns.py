@@ -13,12 +13,13 @@ except: discord = GlobalObjects()
 try: twitch.initialized()
 except: twitch = GlobalObjects()
 
-async def _message(channel_name, message, cb = None):
+async def _message(channel_name, message, cb = None, typing_delay = 3):
     try: channel = discord.channels[channel_name]
     except:
         discord.channels = {o.name: o for o in discord.bot.get_all_channels()}
         channel = discord.channels[channel_name]
     async with channel.typing():
+        await asyncio.sleep(typing_delay)
         if cb is not None:
             args, kw = cb(message)
         else: args, kw = (message,), {}
@@ -65,7 +66,10 @@ async def stream_alert(user_id):
         started_at = dateutil.parser.isoparse(stream.started_at).timestamp()
         if abs(time.time() - started_at) > runtime.notify_max_started:
             notify = False
-            
+
+        if 'force_notify' in states[user_id]:
+            notify = states[user_id]['force_notify']
+            del states[user_id]['force_notify']
         if notify:
             embed = Embed(url = 'https://twitch.tv/%s' % user.login,
                           title = '%s spielt %s' % (user.display_name, states[user_id]['game'].name),
@@ -77,6 +81,9 @@ async def stream_alert(user_id):
             await _message(runtime.notify_channel,
                            'Hey Freunde ich bin jetzt am start, schaut doch mal vorbei unter: %s' % embed.url,
                            cb = lambda m: ((m,), {'embed': embed}))
+
+def online_streams():
+    return {x['user'].login: x for x in runtime.states.values() if x['stream'] is not None}
 
 async def team_stream_alert():
     while not discord.ready:

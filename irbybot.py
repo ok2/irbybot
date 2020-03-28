@@ -16,13 +16,13 @@ env.runtime.loop = asyncio.new_event_loop()
 env.discord.bot = discord_cmd.Bot(command_prefix = '!', loop = env.runtime.loop)
 env.discord.ready = False
 env.twitch.helix = twitch.Helix(client_id = TWITCH_CLIENT_ID,
-                            client_secret = TWITCH_CLIENT_SECRET)
-env.twitch.v5 = twitch.v5.V5(client_id = TWITCH_CLIENT_ID,
-                         client_secret = TWITCH_CLIENT_SECRET)
-env.twitch.chat = twitch.Chat(channel = '#irbygames',
-                          oauth = TWITCH_OAUTH,
-                          nickname = 'IrbyBot',
-                          helix = env.twitch.helix)
+                                client_secret = TWITCH_CLIENT_SECRET)
+env.twitch.v5    = twitch.v5.V5(client_id = TWITCH_CLIENT_ID,
+                                client_secret = TWITCH_CLIENT_SECRET)
+env.twitch.chat  = twitch.Chat (channel = '#irbygames',
+                                oauth = TWITCH_OAUTH,
+                                nickname = 'IrbyBot',
+                                helix = env.twitch.helix)
 
 @env.discord.bot.event
 async def on_ready():
