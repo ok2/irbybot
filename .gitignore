@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# config
+irbybotconfig.py
+
+# Runtime dirs
+bin/
+lib/
+lib64
+include/
+share/
