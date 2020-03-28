@@ -86,7 +86,7 @@ async def team_stream_alert():
             try: await stream_alert(int(user['_id']))
             except Exception as err:
                 print('team.notify.%s.%s error: %s' % (runtime.notify_team_name, user['display_name'], repr(err)))
-        await asyncio.sleep(runtime.notify_timeout)
+        await asyncio.sleep(runtime.notify_check_interval)
 
 async def discord_message(message):
     print('discord.%s.%s: %s' % (message.channel.name, message.author.name, message.content))
