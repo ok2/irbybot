@@ -37,6 +37,10 @@ async def on_message(message):
 async def discord_ping(ctx):
     await env.discord_ping(ctx)
 
+@env.discord.bot.command(name = 'streams')
+async def discord_streams(ctx):
+    await env.discord_streams(ctx)
+
 def twitch_message(message):
     env.runtime.loop.create_task(env.twitch_message(message))
 

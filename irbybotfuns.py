@@ -105,3 +105,12 @@ async def discord_ping(ctx):
     
 async def twitch_message(message):
     print('twitch.%s.%s: %s' % (message.channel, message.user, message.text))
+
+async def discord_streams(ctx):
+    print('discord.command.streams')
+    async with ctx.typing():
+        count = 0
+        for user, data in sorted(online_streams().items(), key = lambda x: x[0]):
+            await ctx.send('%s mit %s auf <https://twitch.tv/%s>' % (data['user'].display_name, data['game'].name, user))
+            count += 1
+        await ctx.send('Offen %d von %d Streams des Teams.' % (count, len(runtime.states)))
