@@ -187,6 +187,7 @@ async def discord_setcommand(ctx):
         mod_channel = _get_channel_name(config.mod_channel)
         if mod_channel != ctx.channel.name:
             await ctx.send('FEHLER: `!setcommand` ist in diesem Kanal nicht erlaubt.')
+            return
         try:
             args, content = ctx.message.content.split('\n', 1)
             _, cmd_name, cmd_desc = args.split(' ', 2)
@@ -216,6 +217,7 @@ async def discord_delcommand(ctx):
         mod_channel = _get_channel_name(config.mod_channel)
         if mod_channel != ctx.channel.name:
             await ctx.send('FEHLER: `!delcommand` ist in diesem Kanal nicht erlaubt.')
+            return
         try:
             _, cmd_name = ctx.message.content.split(' ', 2)
             cmd_name = cmd_name.strip()
