@@ -96,7 +96,8 @@ async def stream_alert(user_id):
             del states[user_id]['force_notify']
         if notify:
             embed = Embed(url = 'https://twitch.tv/%s' % user.login,
-                          title = config.notify_title(user.display_name, states[user_id]['game'].name),
+                          title = config.notify_title(name = user.display_name,
+                                                      game = states[user_id]['game'].name),
                           description = states[user_id]['stream'].title)
             embed.set_author(name = user.display_name, url = embed.url, icon_url = user.profile_image_url)
             embed.set_image(url = states[user_id]['stream'].thumbnail_url.format(width = 800, height = 450))
@@ -197,7 +198,7 @@ async def discord_setcommand(ctx):
             return
         try:
             args, content = ctx.message.content.split('\n', 1)
-            _, cmd_name, cmd_desc = args.split(' ', 2)
+            _, cmd_name, cmd_desc = re.split(r'\s+', args, 2)
             cmd_name, cmd_desc = cmd_name.strip().lower(), cmd_desc.strip()
             if not re.match('^[a-z0-9_]+$', cmd_name):
                 raise SyntaxError('Wrong command name: %s' % repr(cmd_name))
@@ -226,7 +227,7 @@ async def discord_delcommand(ctx):
             await ctx.send('FEHLER: `!delcommand` ist in diesem Kanal nicht erlaubt.')
             return
         try:
-            _, cmd_name = ctx.message.content.split(' ', 2)
+            _, cmd_name = re.split(r'\s+', ctx.message.content, 2)
             cmd_name = cmd_name.strip()
             if cmd_name not in runtime.commands:
                 await ctx.send('FEHLER: Befehl `!%s` ist nicht gesetzt.' % cmd_name)
