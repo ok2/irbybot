@@ -15,6 +15,9 @@ except: discord = GlobalObjects()
 try: twitch.initialized()
 except: twitch = GlobalObjects()
 
+def out(*args, **kw):
+    return print(time.strftime('%m.%d %H:%M:%S', time.localtime()), *args, **kw)
+
 def _get_notify_channel(user):
     for regex, channel in config.notify_channels:
         if re.match(regex, user.login) or re.match(regex, user.display_name):
@@ -69,6 +72,7 @@ async def stream_alert(user_id):
         states[user_id]['notified'] = 0.0
         if 'game' in states[user_id]:
             del states[user_id]['game']
+        out('twitch.stream.offline: https://twitch.tv/%s' % user.login)
         if config.notify_offline is not None:
             await _message(_get_notify_channel(user), config.notify_offline(url = 'https://twitch.tv/%s' % user.login))
     elif stream is not None:
@@ -98,6 +102,7 @@ async def stream_alert(user_id):
             embed.set_image(url = states[user_id]['stream'].thumbnail_url.format(width = 800, height = 450))
             embed.set_thumbnail(url = states[user_id]['game'].box_art_url.format(width = 75, height = 100))
             states[user_id]['notified'] = time.monotonic()
+            out('twitch.stream.online: %s' % embed.url)
             await _message(_get_notify_channel(user),
                            config.notify_online(url = embed.url),
                            cb = lambda m: ((m,), {'embed': embed}))
@@ -112,25 +117,27 @@ async def team_stream_alert():
         for user in twitch.v5.api.get('teams/%s' % config.notify_team_name)['users']:
             try: await stream_alert(int(user['_id']))
             except Exception as err:
-                print('team.notify.%s.%s error: %s' % (config.notify_team_name, user['display_name'], repr(err)))
+                out('team.notify.%s.%s error: %s' % (config.notify_team_name, user['display_name'], repr(err)))
         await asyncio.sleep(config.notify_check_interval)
 
 async def discord_message(message):
-    print('discord.%s.%s: %s' % (getattr(message.channel, 'name', '()'), message.author.name, message.content))
+    if message.author.name not in config.discord_ignore_users:
+        out('discord.%s.%s: %s' % (getattr(message.channel, 'name', '()'), message.author.name, message.content))
     await discord.bot.process_commands(message)
 
 async def twitch_message(message):
-    print('twitch.%s.%s: %s' % (message.channel, message.user, message.text))
+    if message.user not in config.twitch_ignore_users:
+        out('twitch.%s.%s: %s' % (message.channel, message.user, message.text))
 
 async def discord_ping(ctx):
     """Antwortet mit PONG"""
-    print('discord.command.ping')
+    out('discord.command.ping')
     async with ctx.typing():
         await ctx.send('PONG', tts = True)
 
 async def discord_streams(ctx):
     """Listet die aktuellen Online-Streams vom NextGen Team auf"""
-    print('discord.command.streams')
+    out('discord.command.streams')
     async with ctx.typing():
         count = 0
         for user, data in sorted(online_streams().items(), key = lambda x: x[0]):
@@ -140,7 +147,7 @@ async def discord_streams(ctx):
 
 async def discord_commands(ctx):
     """Zeigt verfügbare Befehle"""
-    print('discord.command.commands')
+    out('discord.command.commands')
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
         msg = ["Folgende Befehle sind verfügbar:"]
@@ -154,7 +161,7 @@ async def discord_commands(ctx):
         await ctx.send("\n".join(msg))
 
 async def discord_print(ctx):
-    print('discord.command.%s (print)' % ctx.command.name)
+    out('discord.command.%s (print)' % ctx.command.name)
     async with ctx.typing():
         _, msg = runtime.commands.get(ctx.command.name, ('', ''))
         if msg is not '':
@@ -166,23 +173,23 @@ def flush_commands():
     os.rename(config.commands_file + '.tmp', config.commands_file)
 
 async def discord_join(member):
-    print('discord.join.%s' % member.name)
+    out('discord.join.%s' % member.name)
     try: await member.send(config.join_message)
     except Exception as err:
-        print('discord.join.%s error:' % (member.name, repr(err)))
+        out('discord.join.%s error:' % (member.name, repr(err)))
 
 async def discord_left(member):
-    print('discord.left.%s' % member.name)
+    out('discord.left.%s' % member.name)
     discord_members = {x.name: x for x in discord.bot.get_all_members()}
     for user in config.left_users:
         if user not in discord_members: continue
         try: await discord_members[user].send('%s %s' % (member.name, config.left_message))
         except Exception as err:
-            print('discord.left.%s error for user %s: %s' % (member.name, user, repr(err)))
+            out('discord.left.%s error for user %s: %s' % (member.name, user, repr(err)))
 
 async def discord_setcommand(ctx):
-    """Setzt ein text Befehl"""
-    print('discord.command.setcommand: %s' % repr((ctx.channel.name, ctx.author.name, ctx.message.content)))
+    """Setzt ein Textbefehl"""
+    out('discord.command.setcommand: %s' % repr((ctx.channel.name, ctx.author.name, ctx.message.content)))
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
         if mod_channel != ctx.channel.name:
@@ -212,7 +219,7 @@ async def discord_setcommand(ctx):
 
 async def discord_delcommand(ctx):
     """Löscht ein gesetztes Befehl"""
-    print('discord.command.delcommand')
+    out('discord.command.delcommand')
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
         if mod_channel != ctx.channel.name:
@@ -242,7 +249,7 @@ async def _reset_commands():
         with open(config.commands_file, 'rb') as fd:
             runtime.commands = pickle.load(fd)
     except Exception as err:
-        print("WARNING: failed to read file %s: %s" % (repr(config.commands_file), repr(err)))
+        out("WARNING: failed to read file %s: %s" % (repr(config.commands_file), repr(err)))
     discord.bot.command(name = 'nextgen', description = discord_streams.__doc__)(discord_streams)
     discord.bot.command(name = 'ping',
                         description = discord_ping.__doc__,

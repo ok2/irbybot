@@ -14,7 +14,9 @@ logging.basicConfig(level = logging.DEBUG,
 config.configure(env)
 env.runtime.loop = asyncio.new_event_loop()
 env.runtime.commands = {}
-env.discord.bot = discord_cmd.Bot(command_prefix = '!', loop = env.runtime.loop)
+env.discord.bot = discord_cmd.Bot(command_prefix = '!',
+                                  case_insensitive = True,
+                                  loop = env.runtime.loop)
 env.discord.ready = False
 env.twitch.helix = twitch.Helix(client_id = config.TWITCH_CLIENT_ID,
                                 client_secret = config.TWITCH_CLIENT_SECRET)
