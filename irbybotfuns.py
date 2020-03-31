@@ -132,22 +132,33 @@ async def twitch_message(message):
 
 async def discord_ping(ctx):
     """Antwortet mit PONG"""
+    if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
+        out('discord.command.ping not allowed')
+        return
     out('discord.command.ping')
     async with ctx.typing():
         await ctx.send('PONG', tts = True)
 
 async def discord_streams(ctx):
     """Listet die aktuellen Online-Streams vom NextGen Team auf"""
+    if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
+        out('discord.command.streams not allowed')
+        return
     out('discord.command.streams')
     async with ctx.typing():
         count = 0
+        msg = []
         for user, data in sorted(online_streams().items(), key = lambda x: x[0]):
-            await ctx.send('`%s` mit `%s` auf <https://twitch.tv/%s>' % (data['user'].display_name, data['game'].name, user))
+            msg.append('`%s` mit `%s` auf <https://twitch.tv/%s>' % (data['user'].display_name, data['game'].name, user))
             count += 1
-        await ctx.send('Offen %d von %d Streams des Teams.' % (count, len(runtime.states)))
+        msg.append('Offen %d von %d Streams des Teams: <https://www.twitch.tv/team/%s>' % (count, len(runtime.states), config.notify_team_name))
+        await ctx.send('\n'.join(msg))
 
 async def discord_commands(ctx):
     """Zeigt verfügbare Befehle"""
+    if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
+        out('discord.command.commands not allowed')
+        return
     out('discord.command.commands')
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
@@ -155,13 +166,17 @@ async def discord_commands(ctx):
         for cmd_name in sorted(discord.bot.all_commands.keys()):
             cmd_obj = discord.bot.all_commands[cmd_name]
             if cmd_obj.name != cmd_name: continue
-            if not cmd_obj.hidden or ctx.channel.name == mod_channel:
+            if not cmd_obj.hidden or ctx.channel.name == mod_channel \
+               or ctx.channel.name in config.admin_channels:
                 if cmd_name in runtime.commands: pointer = '`<=`'
                 else: pointer = '`=>`'
                 msg.append("`% 14s` %s %s" % ('!%s' % cmd_name, pointer, cmd_obj.description))
         await ctx.send("\n".join(msg))
 
 async def discord_print(ctx):
+    if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
+        out('discord.command.%s (print) not allowed' % ctx.command.name)
+        return
     out('discord.command.%s (print)' % ctx.command.name)
     async with ctx.typing():
         _, msg = runtime.commands.get(ctx.command.name, ('', ''))
@@ -193,13 +208,14 @@ async def discord_setcommand(ctx):
     out('discord.command.setcommand: %s' % repr((ctx.channel.name, ctx.author.name, ctx.message.content)))
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
-        if mod_channel != ctx.channel.name:
+        if mod_channel != ctx.channel.name and ctx.channel.name not in config.admin_channels:
             await ctx.send('FEHLER: `!setcommand` ist in diesem Kanal nicht erlaubt.')
             return
         try:
             args, content = ctx.message.content.split('\n', 1)
             _, cmd_name, cmd_desc = re.split(r'\s+', args, 2)
             cmd_name, cmd_desc = cmd_name.strip().lower(), cmd_desc.strip()
+            if cmd_name.startswith('!'): cmd_name = cmd_name[1:]
             if not re.match('^[a-z0-9_]+$', cmd_name):
                 raise SyntaxError('Wrong command name: %s' % repr(cmd_name))
             if cmd_name in discord.bot.all_commands:
@@ -223,12 +239,13 @@ async def discord_delcommand(ctx):
     out('discord.command.delcommand')
     async with ctx.typing():
         mod_channel = _get_channel_name(config.mod_channel)
-        if mod_channel != ctx.channel.name:
+        if mod_channel != ctx.channel.name and ctx.channel.name not in config.admin_channels:
             await ctx.send('FEHLER: `!delcommand` ist in diesem Kanal nicht erlaubt.')
             return
         try:
             _, cmd_name = re.split(r'\s+', ctx.message.content, 2)
             cmd_name = cmd_name.strip()
+            if cmd_name.startswith('!'): cmd_name = cmd_name[1:]
             if cmd_name not in runtime.commands:
                 await ctx.send('FEHLER: Befehl `!%s` ist nicht gesetzt.' % cmd_name)
             elif cmd_name in discord.bot.all_commands and \
