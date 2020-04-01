@@ -1,6 +1,8 @@
 import asyncio, threading, time, re, os, pickle
 import dateutil.parser
 from discord import Embed
+from googleapiclient.discovery import build
+import googletrans
 
 class GlobalObjects(object):
     def initialized(self):
@@ -17,6 +19,11 @@ except: twitch = GlobalObjects()
 
 def out(*args, **kw):
     return print(time.strftime('%m.%d %H:%M:%S', time.localtime()), *args, **kw)
+
+def _google_search(search_term, **kwargs):
+    service = build("customsearch", "v1", developerKey=config.google_api)
+    res = service.cse().list(q=search_term, cx=config.google_seid, **kwargs).execute()
+    return res['items']
 
 def _get_notify_channel(user):
     for regex, channel in config.notify_channels:
@@ -154,6 +161,35 @@ async def discord_streams(ctx):
         msg.append('Offen %d von %d Streams des Teams: <https://www.twitch.tv/team/%s>' % (count, len(runtime.states), config.notify_team_name))
         await ctx.send('\n'.join(msg))
 
+async def discord_google(ctx):
+    """Suche etwas im Internet"""
+    if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
+        out('discord.command.google not allowed')
+        return
+    out('discord.command.google: %s' % repr(ctx.message.content))
+    try: query = re.split(r'\s+', ctx.message.content, 1)[1].strip()
+    except Exception as err:
+        out('discord.command.google error: %s' % repr(err))
+        return
+    async with ctx.typing():
+        msg = []
+        for res in _google_search(query):
+            msg.append('`%s`: <%s>' % (res['title'], res['link']))
+        await ctx.send("\n".join(msg))
+
+async def discord_translate(ctx):
+    """Übersetzer"""
+    out('discord.command.translate: %s' % repr(ctx.message.content))
+    async with ctx.typing():
+        try:
+            _, lang, text = re.split(r'\s+', ctx.message.content, 2)
+            out('discord.command.translate: %s' % repr((lang, text)))
+            translation = googletrans.Translator().translate(text, dest = lang.strip()).text
+            await ctx.send(translation)
+        except Exception as err:
+            out('discord.command.translate error: %s' % repr(err))
+            await ctx.send('Ich kann das leider nicht übersetzen')
+
 async def discord_commands(ctx):
     """Zeigt verfügbare Befehle"""
     if config.allowed_channels is not None and ctx.channel.name not in config.allowed_channels:
@@ -281,6 +317,12 @@ async def _reset_commands():
     discord.bot.command(name = 'delcommand',
                         aliases = ['del'],
                         description = discord_delcommand.__doc__)(discord_delcommand)
+    discord.bot.command(name = 'suche',
+                        aliases = ['google'],
+                        description = discord_google.__doc__)(discord_google)
+    discord.bot.command(name = 'translate',
+                        aliases = ['übersetze'],
+                        description = discord_translate.__doc__)(discord_translate)
     for cmd in discord.bot.all_commands.values():
         cmd.not_overwritable = True
     for cmd_name, cmd_data in runtime.commands.items():
