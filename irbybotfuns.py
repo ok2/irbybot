@@ -61,59 +61,62 @@ def message(channel_name, message, cb = None):
         runtime.loop).result(60)
 
 async def stream_alert(user_id):
-    user_id = int(user_id)
-    try: states = runtime.states
-    except: runtime.states = states = {}
-    try: games = runtime.games
-    except: runtime.games = games = {}
-    if user_id not in states:
-        states[user_id] = { 'stream': None,
-                            'notified': 0.0 }
-    if 'user' not in states[user_id]:
-        states[user_id]['user'] = twitch.helix.user(user_id)
-    user = states[user_id]['user']
-    try: stream = user.stream
-    except: stream = None
-    if (stream is None and states[user_id]['stream'] is not None):
-        states[user_id]['stream'] = None
-        states[user_id]['notified'] = 0.0
-        if 'game' in states[user_id]:
-            del states[user_id]['game']
-        out('twitch.stream.offline: https://twitch.tv/%s' % user.login)
-        if config.notify_offline is not None:
-            await _message(_get_notify_channel(user), config.notify_offline(url = 'https://twitch.tv/%s' % user.login))
-    elif stream is not None:
-        notify = False
-        if states[user_id]['stream'] is None: notify = True
-        if abs(time.monotonic() - states[user_id]['notified']) > config.notify_timeout:
-            notify = True
-        if 'game' in states[user_id] and states[user_id]['game'].id != stream.game_id:
-            notify = True
-        states[user_id]['stream'] = stream
-        if stream.game_id not in games:
-            games[stream.game_id] = twitch.helix.game(id = int(stream.game_id))
-        states[user_id]['game'] = games[stream.game_id]
-
-        started_at = dateutil.parser.isoparse(stream.started_at).timestamp()
-        if abs(time.time() - started_at) > config.notify_max_started:
+    try:
+        user_id = int(user_id)
+        try: states = runtime.states
+        except: runtime.states = states = {}
+        try: games = runtime.games
+        except: runtime.games = games = {}
+        if user_id not in states:
+            states[user_id] = { 'stream': None,
+                                'notified': 0.0 }
+        if 'user' not in states[user_id]:
+            states[user_id]['user'] = twitch.helix.user(user_id)
+        user = states[user_id]['user']
+        try: stream = user.stream
+        except: stream = None
+        if (stream is None and states[user_id]['stream'] is not None):
+            states[user_id]['stream'] = None
+            if 'game' in states[user_id]:
+                del states[user_id]['game']
+            out('twitch.stream.offline: https://twitch.tv/%s' % user.login)
+            if config.notify_offline is not None:
+                await _message(_get_notify_channel(user), config.notify_offline(url = 'https://twitch.tv/%s' % user.login))
+        elif stream is not None:
             notify = False
+            if states[user_id]['stream'] is None:
+                notify = True
+            if abs(time.monotonic() - states[user_id]['notified']) > config.notify_timeout:
+                notify = True
+            if 'game' in states[user_id] and states[user_id]['game'].id != stream.game_id:
+                notify = True
+            started_at = dateutil.parser.isoparse(stream.started_at).timestamp()
+            if abs(time.time() - started_at) > config.notify_max_started:
+                notify = False
 
-        if 'force_notify' in states[user_id]:
-            notify = states[user_id]['force_notify']
-            del states[user_id]['force_notify']
-        if notify:
-            embed = Embed(url = 'https://twitch.tv/%s' % user.login,
-                          title = config.notify_title(name = user.display_name,
-                                                      game = states[user_id]['game'].name),
-                          description = states[user_id]['stream'].title)
-            embed.set_author(name = user.display_name, url = embed.url, icon_url = user.profile_image_url)
-            embed.set_image(url = states[user_id]['stream'].thumbnail_url.format(width = 800, height = 450))
-            embed.set_thumbnail(url = states[user_id]['game'].box_art_url.format(width = 75, height = 100))
-            states[user_id]['notified'] = time.monotonic()
-            out('twitch.stream.online: %s' % embed.url)
-            await _message(_get_notify_channel(user),
-                           config.notify_online(url = embed.url),
-                           cb = lambda m: ((m,), {'embed': embed}))
+            states[user_id]['stream'] = stream
+            if stream.game_id not in games:
+                games[stream.game_id] = twitch.helix.game(id = int(stream.game_id))
+            states[user_id]['game'] = games[stream.game_id]
+
+            if 'force_notify' in states[user_id]:
+                notify = states[user_id]['force_notify']
+                del states[user_id]['force_notify']
+            if notify:
+                embed = Embed(url = 'https://twitch.tv/%s' % user.login,
+                              title = config.notify_title(name = user.display_name,
+                                                          game = states[user_id]['game'].name),
+                              description = states[user_id]['stream'].title)
+                embed.set_author(name = user.display_name, url = embed.url, icon_url = user.profile_image_url)
+                embed.set_image(url = states[user_id]['stream'].thumbnail_url.format(width = 800, height = 450))
+                embed.set_thumbnail(url = states[user_id]['game'].box_art_url.format(width = 75, height = 100))
+                states[user_id]['notified'] = time.monotonic()
+                out('twitch.stream.online: %s' % embed.url)
+                await _message(_get_notify_channel(user),
+                               config.notify_online(url = embed.url),
+                               cb = lambda m: ((m,), {'embed': embed}))
+    except Exception as err:
+        out('twitch.stream.alert error: %s' % repr(err))
 
 def online_streams():
     return {x['user'].login: x for x in runtime.states.values() if x['stream'] is not None}
@@ -188,7 +191,9 @@ async def discord_translate(ctx):
             await ctx.send(translation)
         except Exception as err:
             out('discord.command.translate error: %s' % repr(err))
-            await ctx.send('Ich kann das leider nicht übersetzen')
+            if 'invalid destination language' in repr(err):
+                await ctx.send('Die Sprache `%s` ist mir leider nicht bekannt' % lang)
+            else: await ctx.send('Ich kann das leider nicht übersetzen')
 
 async def discord_commands(ctx):
     """Zeigt verfügbare Befehle"""
@@ -202,8 +207,9 @@ async def discord_commands(ctx):
         for cmd_name in sorted(discord.bot.all_commands.keys()):
             cmd_obj = discord.bot.all_commands[cmd_name]
             if cmd_obj.name != cmd_name: continue
-            if not cmd_obj.hidden or ctx.channel.name == mod_channel \
-               or ctx.channel.name in config.admin_channels:
+            if not cmd_obj.hidden \
+               and (ctx.channel.name == mod_channel \
+                    or ctx.channel.name in config.admin_channels):
                 if cmd_name in runtime.commands: pointer = '`<=`'
                 else: pointer = '`=>`'
                 msg.append("`% 14s` %s %s" % ('!%s' % cmd_name, pointer, cmd_obj.description))
@@ -224,11 +230,66 @@ def flush_commands():
         pickle.dump(runtime.commands, fd)
     os.rename(config.commands_file + '.tmp', config.commands_file)
 
+async def discord_ready():
+    discord.ready = True
+    print('Discord is ready!')
+
+async def discord_resumed():
+    print('Discord resumed!')
+
+async def auto_roling():
+    guild = discord.bot.get_guild(config.discord_guild)
+    messages_cache = {}
+    for channel_id, message_id, emoji_name, role_id in config.auto_roling:
+        if (channel_id, message_id) not in messages_cache:
+            channel = guild.get_channel(channel_id)
+            message = await channel.fetch_message(message_id)
+            messages_cache[(channel_id, message_id)] = message
+        else: message = messages_cache[(channel_id, message_id)]
+        role = guild.get_role(role_id)
+        users_found = set()
+        for reaction in message.reactions:
+            if reaction.emoji != emoji_name:
+                continue
+            async for user in reaction.users():
+                try: roles = user.roles
+                except: continue
+                role_found = False
+                for currole in roles:
+                    if currole.id == role_id:
+                        role_found = True
+                        break
+                if not role_found:
+                    print('discord.autorolling: %s' % 'add role %s on message %s.%d for user %s' % (role.name, channel.name, message_id, user.name))
+                    await user.add_roles(role, reason = 'Auto rolling add on message %s.%s' % (channel_id, message_id))
+                users_found.add(user.id)
+        #for member in guild.members:
+        #    if member.id in users_found:
+        #        continue
+        #    print('@@@ %s' % repr((role, 'Auto rolling remove role %s on message %s for user %s' % (role, message, member))))
+        #    #await member.remove_roles(role, reason = 'Auto rolling remove on message %s.%s' % (channel_id, message_id))
+
+async def discord_reaction(rtype, payload):
+    try:
+        print('reaction.%s: %s' % (rtype, payload))
+        start_auto_roling = False
+        for channel_id, message_id, _, _ in config.auto_roling:
+            if channel_id == payload.channel_id and message_id == message_id:
+                start_auto_roling = True
+                break
+        if start_auto_roling:
+            await auto_roling()
+    except Exception as err:
+        out('discord.reactor error: %s' % (member.name, repr(err)))
+    
+async def discord_error(event, *args, **kwargs):
+    print('DISCORD ERROR: %s' % repr((event, args, kwargs)))
+
 async def discord_join(member):
     out('discord.join.%s' % member.name)
     try: await member.send(config.join_message)
     except Exception as err:
-        out('discord.join.%s error:' % (member.name, repr(err)))
+        out('discord.join.%s error: %s' % (member.name, repr(err)))
 
 async def discord_left(member):
     out('discord.left.%s' % member.name)
@@ -319,9 +380,11 @@ async def _reset_commands():
                         description = discord_delcommand.__doc__)(discord_delcommand)
     discord.bot.command(name = 'suche',
                         aliases = ['google'],
+                        hidden = True,
                         description = discord_google.__doc__)(discord_google)
     discord.bot.command(name = 'translate',
                         aliases = ['übersetze'],
+                        hidden = True,
                         description = discord_translate.__doc__)(discord_translate)
     for cmd in discord.bot.all_commands.values():
         cmd.not_overwritable = True

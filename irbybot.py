@@ -29,12 +29,31 @@ env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
 
 @env.discord.bot.event
 async def on_ready():
-    env.discord.ready = True
-    print('Discord is ready!')
+    await env.discord_ready()
+
+@env.discord.bot.event
+async def on_error(event, *args, **kwargs):
+    await env.discord_error(event, *args, **kwargs)
 
 @env.discord.bot.event
 async def on_message(message):
     await env.discord_message(message)
+
+@env.discord.bot.event
+async def on_raw_reaction_add(payload):
+    await env.discord_reaction('add', payload)
+
+@env.discord.bot.event
+async def on_raw_reaction_remove(payload):
+    await env.discord_reaction('remove', payload)
+
+@env.discord.bot.event
+async def on_raw_reaction_clear(payload):
+    await env.discord_reaction('clear', payload)
+
+@env.discord.bot.event
+async def on_raw_reaction_clear_emoji(payload):
+    await env.discord_reaction('clear_emoji', payload)
 
 @env.discord.bot.event
 async def on_member_join(member):
