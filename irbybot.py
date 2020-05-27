@@ -19,7 +19,8 @@ env.discord.bot = discord_cmd.Bot(command_prefix = '!',
                                   loop = env.runtime.loop)
 env.discord.ready = False
 env.twitch.helix = twitch.Helix(client_id = config.TWITCH_CLIENT_ID,
-                                client_secret = config.TWITCH_CLIENT_SECRET)
+                                client_secret = config.TWITCH_CLIENT_SECRET,
+                                bearer_token = config.TWITCH_OAUTH.replace('oauth:', ''))
 env.twitch.v5    = twitch.v5.V5(client_id = config.TWITCH_CLIENT_ID,
                                 client_secret = config.TWITCH_CLIENT_SECRET)
 env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
