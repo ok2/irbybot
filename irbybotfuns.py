@@ -122,18 +122,23 @@ def online_streams():
     return {x['user'].login: x for x in runtime.states.values() if x['stream'] is not None}
 
 async def team_stream_alert():
-    while not discord.ready:
-        await asyncio.sleep(1)
-    while config.notify_team_enabled:
-        for user in twitch.v5.api.get('teams/%s' % config.notify_team_name)['users']:
-            try: await stream_alert(int(user['_id']))
+        while not discord.ready:
+            await asyncio.sleep(1)
+        while config.notify_team_enabled:
+            try:
+                for user in twitch.v5.api.get('teams/%s' % config.notify_team_name)['users']:
+                    try: await stream_alert(int(user['_id']))
+                    except Exception as err:
+                        out('team.notify.%s.%s error: %s' % (config.notify_team_name, user['display_name'], repr(err)))
+                await asyncio.sleep(config.notify_check_interval)
             except Exception as err:
-                out('team.notify.%s.%s error: %s' % (config.notify_team_name, user['display_name'], repr(err)))
-        await asyncio.sleep(config.notify_check_interval)
+                out('twitch.team.stream.alert error: %s' % repr(err))
+                twitch.reinit()
+                await asyncio.sleep(5)
 
 async def discord_message(message):
     if message.author.name not in config.discord_ignore_users:
-        out('discord.%s.%s: %s' % (getattr(message.channel, 'name', '()'), message.author.name, message.content))
+        out('discord.%s.%s %s: %s' % (getattr(message.channel, 'name', '()'), message.author.name, repr(message.author.id), message.content))
     await discord.bot.process_commands(message)
 
 async def twitch_message(message):
@@ -207,9 +212,11 @@ async def discord_commands(ctx):
         for cmd_name in sorted(discord.bot.all_commands.keys()):
             cmd_obj = discord.bot.all_commands[cmd_name]
             if cmd_obj.name != cmd_name: continue
-            if not cmd_obj.hidden \
-               and (ctx.channel.name == mod_channel \
-                    or ctx.channel.name in config.admin_channels):
+            if cmd_obj.hidden: continue
+            if cmd_name in config.admin_commands \
+               and ctx.channel.name not in config.admin_channels:
+                continue
+            if ctx.channel.name in config.allowed_channels:
                 if cmd_name in runtime.commands: pointer = '`<=`'
                 else: pointer = '`=>`'
                 msg.append("`% 14s` %s %s" % ('!%s' % cmd_name, pointer, cmd_obj.description))

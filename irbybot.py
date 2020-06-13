@@ -18,15 +18,18 @@ env.discord.bot = discord_cmd.Bot(command_prefix = '!',
                                   case_insensitive = True,
                                   loop = env.runtime.loop)
 env.discord.ready = False
-env.twitch.helix = twitch.Helix(client_id = config.TWITCH_CLIENT_ID,
-                                client_secret = config.TWITCH_CLIENT_SECRET,
-                                bearer_token = config.TWITCH_OAUTH.replace('oauth:', ''))
-env.twitch.v5    = twitch.v5.V5(client_id = config.TWITCH_CLIENT_ID,
-                                client_secret = config.TWITCH_CLIENT_SECRET)
-env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
-                                oauth = config.TWITCH_OAUTH,
-                                nickname = env.config.twitch_nick,
-                                helix = env.twitch.helix)
+def reinit_twitch():
+    env.twitch.helix = twitch.Helix(client_id = config.TWITCH_CLIENT_ID,
+                                    client_secret = config.TWITCH_CLIENT_SECRET,
+                                    bearer_token = config.TWITCH_OAUTH.replace('oauth:', ''))
+    env.twitch.v5    = twitch.v5.V5(client_id = config.TWITCH_CLIENT_ID,
+                                    client_secret = config.TWITCH_CLIENT_SECRET)
+    env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
+                                    oauth = config.TWITCH_OAUTH,
+                                    nickname = env.config.twitch_nick,
+                                    helix = env.twitch.helix)
+    env.twitch.chat.subscribe(twitch_message)
+    env.twitch.reinit = reinit_twitch
 
 @env.discord.bot.event
 async def on_ready():
@@ -75,6 +78,6 @@ def discord_run():
     env.runtime.loop.create_task(env._reset_commands())
     env.runtime.loop.run_forever()
 
-env.twitch.chat.subscribe(twitch_message)
+reinit_twitch()
 env.discord.thread = Thread(target = discord_run)
 env.discord.thread.start()
