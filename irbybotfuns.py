@@ -26,10 +26,10 @@ def _google_search(search_term, **kwargs):
     return res['items']
 
 def _get_notify_channel(user):
-    for regex, channel in config.notify_channels:
+    for regex, channel, online_msg, offline_msg in config.notify_channels:
         if re.match(regex, user.login) or re.match(regex, user.display_name):
-            return _get_channel_name(channel)
-    return _get_channel_name('test-channel')
+            return (_get_channel_name(channel), online_msg, offline_msg)
+    return (_get_channel_name('test-channel'), config.notify_online, config.notify_offline)
 
 def _get_channel_name(channel_name, retry = True, use_cache = True):
     if not use_cache:
@@ -80,8 +80,9 @@ async def stream_alert(user_id):
             if 'game' in states[user_id]:
                 del states[user_id]['game']
             out('twitch.stream.offline: https://twitch.tv/%s' % user.login)
-            if config.notify_offline is not None:
-                await _message(_get_notify_channel(user), config.notify_offline(url = 'https://twitch.tv/%s' % user.login))
+            channel, online_msg, offline_msg = _get_notify_channel(user)
+            if offline_msg is not None:
+                await _message(channel, offline_msg(url = 'https://twitch.tv/%s' % user.login, login = user.login))
         elif stream is not None:
             notify = False
             if states[user_id]['stream'] is None:
@@ -112,8 +113,8 @@ async def stream_alert(user_id):
                 embed.set_thumbnail(url = states[user_id]['game'].box_art_url.format(width = 75, height = 100))
                 states[user_id]['notified'] = time.monotonic()
                 out('twitch.stream.online: %s' % embed.url)
-                await _message(_get_notify_channel(user),
-                               config.notify_online(url = embed.url),
+                channel, online_msg, offline_msg = _get_notify_channel(user)
+                await _message(channel, online_msg(url = embed.url, login = user.login),
                                cb = lambda m: ((m,), {'embed': embed}))
     except Exception as err:
         out('twitch.stream.alert error: %s' % repr(err))

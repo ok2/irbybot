@@ -24,11 +24,11 @@ def reinit_twitch():
                                     bearer_token = config.TWITCH_OAUTH.replace('oauth:', ''))
     env.twitch.v5    = twitch.v5.V5(client_id = config.TWITCH_CLIENT_ID,
                                     client_secret = config.TWITCH_CLIENT_SECRET)
-    env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
-                                    oauth = config.TWITCH_OAUTH,
-                                    nickname = env.config.twitch_nick,
-                                    helix = env.twitch.helix)
-    env.twitch.chat.subscribe(twitch_message)
+    #env.twitch.chat  = twitch.Chat (channel = env.config.twitch_channel,
+    #                                oauth = config.TWITCH_OAUTH,
+    #                                nickname = env.config.twitch_nick,
+    #                                helix = env.twitch.helix)
+    #env.twitch.chat.subscribe(twitch_message)
     env.twitch.reinit = reinit_twitch
 
 @env.discord.bot.event
