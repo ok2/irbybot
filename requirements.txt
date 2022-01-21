@@ -15,7 +15,7 @@ googleapis-common-protos==1.51.0
 googletrans==2.4.0
 httplib2==0.18.0
 idna==2.9
-ipython==7.13.0
+ipython==7.16.3
 ipython-genutils==0.2.0
 jedi==0.16.0
 multidict==4.7.5
